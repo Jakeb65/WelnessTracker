@@ -1,4 +1,4 @@
-const API_URL = 'http://192.168.0.130:3000'; // lub Twój adres backendu
+const API_URL = 'http://192.168.0.130:3000';
 
 export async function getEntries() {
   const res = await fetch(`${API_URL}/entries`);
