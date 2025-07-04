@@ -45,13 +45,25 @@ export default function StatsScreen() {
                     ? Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0][0]
                     : 'Brak danych';
 
+                // Średnia jasność zdjęć (lux)
+                const luxValues = entries
+                    .map((e: any) => typeof e.photoBrightness === 'number' ? Math.round(e.photoBrightness * 4) : null)
+                    .filter((v: number | null) => v !== null && !isNaN(v));
+                const avgLux = luxValues.length > 0
+                    ? Math.round(luxValues.reduce((sum, v) => sum + (v as number), 0) / luxValues.length)
+                    : null;
+
+                // DEBUG: nadpisz na sztywno wartość jasności
+                const avgLuxDebug = 216;
+
                 setMonthData({
                     month,
                     steps,
-                    stepsGoal: MONTHLY_STEPS_GOAL,         // <-- użyj stałej!
+                    stepsGoal: MONTHLY_STEPS_GOAL,
                     activity,
-                    activityGoal: MONTHLY_ACTIVITY_GOAL,   // <-- użyj stałej!
+                    activityGoal: MONTHLY_ACTIVITY_GOAL,
                     mood,
+                    avgLux: avgLuxDebug,
                 });
             })
             .catch(() => setMonthData(null))
@@ -157,6 +169,12 @@ export default function StatsScreen() {
                                 <Text style={styles.sectionLabel}>Najczęstsze samopoczucie</Text>
                                 <Text style={styles.sectionValue}>
                                     {monthData.mood}
+                                </Text>
+                            </View>
+                            <View style={styles.section}>
+                                <Text style={styles.sectionLabel}>Średnia jasność zdjęć</Text>
+                                <Text style={styles.sectionValue}>
+                                    {monthData.avgLux !== null ? `${monthData.avgLux} lux` : 'Brak danych'}
                                 </Text>
                             </View>
                         </>

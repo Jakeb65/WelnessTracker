@@ -1,10 +1,12 @@
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Modal, StyleSheet, View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Appbar, Button, Chip, IconButton, Text, TextInput } from 'react-native-paper';
 import { addEntry } from '../api/entries';
 import { Picker } from '@react-native-picker/picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const moodOptions = [
   'Super',
@@ -15,7 +17,30 @@ const moodOptions = [
   'Zestresowany',
 ];
 
+
+// Funkcja do liczenia średniej jasności zdjęcia (0-255)
+async function calculateBrightness(uri: string): Promise<number> {
+  const manipResult = await ImageManipulator.manipulateAsync(
+    uri,
+    [{ resize: { width: 8, height: 8 } }],
+    { base64: true }
+  );
+  if (!manipResult.base64) return 255;
+  const byteCharacters = atob(manipResult.base64);
+  let total = 0, count = 0;
+  for (let i = 0; i < byteCharacters.length; i += 4) {
+    const r = byteCharacters.charCodeAt(i);
+    const g = byteCharacters.charCodeAt(i + 1);
+    const b = byteCharacters.charCodeAt(i + 2);
+    const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+    total += brightness;
+    count++;
+  }
+  return total / count;
+}
+
 export default function AddScreen() {
+    const [photoBrightness, setPhotoBrightness] = useState<number | null>(null);
     const router = useRouter();
     const params = useLocalSearchParams();
 
@@ -26,6 +51,9 @@ export default function AddScreen() {
     const [exercises, setExercises] = useState<string[]>(
         params.exercises ? JSON.parse(params.exercises as string) : []
     );
+
+    // Nowe pole na zdjęcie
+    const [photoUri, setPhotoUri] = useState<string | null>(null);
 
     const [modalVisible, setModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -46,6 +74,8 @@ export default function AddScreen() {
                 activity: Number(activityMinutes),
                 mood,
                 exercises,
+                photoUri, // dodajemy zdjęcie do zapisu
+                photoBrightness: photoBrightness !== null && !isNaN(photoBrightness) ? photoBrightness : null,
             });
             setModalVisible(true);
         } catch (e) {
@@ -72,6 +102,40 @@ export default function AddScreen() {
 
     const handleRemoveExercise = (index: number) => {
         setExercises(exercises.filter((_, i) => i !== index));
+    };
+
+    // Obsługa zdjęcia
+    const handleTakePhoto = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            setErrorMessage('Brak uprawnień do aparatu');
+            setModalVisible(true);
+            return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.7,
+        });
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const uri = result.assets[0].uri;
+            // Analiza jasności
+            try {
+                const brightness = await calculateBrightness(uri);
+                if (brightness < 60) {
+                    setErrorMessage('Zdjęcie jest bardzo ciemne! Spróbuj zrobić je w lepszym świetle lub użyj lampy błyskowej.');
+                    setModalVisible(true);
+                    setPhotoUri(null);
+                    setPhotoBrightness(null);
+                    return;
+                }
+                setPhotoBrightness(Math.round(brightness));
+            } catch (e) {
+                setPhotoBrightness(null);
+            }
+            setPhotoUri(uri);
+        }
     };
 
     const styles = StyleSheet.create({
@@ -235,6 +299,26 @@ export default function AddScreen() {
                               <Picker.Item key={option} label={option} value={option} />
                             ))}
                           </Picker>
+                        </View>
+                        <Text style={styles.label}>Zdjęcie (opcjonalnie)</Text>
+                        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                        {photoUri ? (
+                            <>
+                                <Image
+                                    source={{ uri: photoUri }}
+                                    style={{ width: 180, height: 135, borderRadius: 10, marginBottom: 8 }}
+                                    contentFit="cover"
+                                />
+                                {photoBrightness !== null && !isNaN(photoBrightness) && (
+                                    <Text style={{ marginBottom: 4, color: '#555' }}>
+                                        Jasność zdjęcia (szacowane): {Math.round(photoBrightness * 4)} lux
+                                    </Text>
+                                )}
+                            </>
+                        ) : null}
+                        <Button icon="camera" mode="outlined" onPress={handleTakePhoto} style={{ marginBottom: 8 }}>
+                            Zrób zdjęcie
+                        </Button>
                         </View>
                         <Button
                             mode="contained"

@@ -41,11 +41,13 @@ app.post('/entries', (req, res) => {
     activityGoal = 60,
     mood = '',
     exercises = [],
+    photoUri = null,
+    photoBrightness = null,
   } = req.body;
 
   const sql = `
-    INSERT INTO entries (date, steps, stepsGoal, activity, activityGoal, mood, exercises)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO entries (date, steps, stepsGoal, activity, activityGoal, mood, exercises, photoUri, photoBrightness)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     date,
@@ -53,8 +55,10 @@ app.post('/entries', (req, res) => {
     stepsGoal,
     activity,
     activityGoal,
-    String(mood ?? ''), // <- poprawka!
+    String(mood ?? ''),
     JSON.stringify(exercises),
+    photoUri,
+    photoBrightness,
   ];
 
   db.run(sql, params, function (err) {
@@ -62,6 +66,7 @@ app.post('/entries', (req, res) => {
     db.get('SELECT * FROM entries WHERE id = ?', [this.lastID], (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
       row.exercises = row.exercises ? JSON.parse(row.exercises) : [];
+      // photoBrightness już jest w row
       res.json(row);
     });
   });
@@ -78,6 +83,8 @@ app.put('/entries/:id', (req, res) => {
     activityGoal = 60,
     mood = '',
     exercises = [],
+    photoUri = null,
+    photoBrightness = null,
   } = req.body;
 
   const sql = `
@@ -88,7 +95,9 @@ app.put('/entries/:id', (req, res) => {
         activity = ?,
         activityGoal = ?,
         mood = ?,
-        exercises = ?
+        exercises = ?,
+        photoUri = ?,
+        photoBrightness = ?
     WHERE id = ?
   `;
   const params = [
@@ -99,6 +108,8 @@ app.put('/entries/:id', (req, res) => {
     activityGoal,
     String(mood ?? ''),
     JSON.stringify(exercises),
+    photoUri,
+    photoBrightness,
     id,
   ];
 
@@ -108,6 +119,7 @@ app.put('/entries/:id', (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
       if (!row) return res.status(404).json({ error: 'Entry not found' });
       row.exercises = row.exercises ? JSON.parse(row.exercises) : [];
+      // photoBrightness już jest w row
       res.json(row);
     });
   });

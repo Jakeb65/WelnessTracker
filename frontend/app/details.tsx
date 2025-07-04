@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
@@ -9,6 +10,7 @@ import { getEntry, deleteEntry } from '../api/entries';
 const stepsGoal = 10000;
 
 export default function DetailsScreen() {
+    const [photoBrightness, setPhotoBrightness] = useState<number | null>(null);
     const router = useRouter();
     const params = useLocalSearchParams();
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -33,7 +35,47 @@ export default function DetailsScreen() {
             return;
         }
         getEntry(id)
-            .then(setEntry)
+            .then(async (data) => {
+                setEntry(data);
+                // Jeśli jest zdjęcie, policz jasność
+                if (data && data.photoUri) {
+                    try {
+                        const manipResult = await ImageManipulator.manipulateAsync(
+                            data.photoUri,
+                            [{ resize: { width: 8, height: 8 } }],
+                            { base64: true }
+                        );
+                        if (manipResult.base64) {
+                            const byteCharacters = atob(manipResult.base64);
+                            let total = 0, count = 0;
+                            for (let i = 0; i < byteCharacters.length; i += 4) {
+                                const r = byteCharacters.charCodeAt(i);
+                                const g = byteCharacters.charCodeAt(i + 1);
+                                const b = byteCharacters.charCodeAt(i + 2);
+                                // Sprawdź czy bajty są poprawne (mogą być NaN na końcu base64)
+                                if (
+                                    !isNaN(r) && !isNaN(g) && !isNaN(b)
+                                ) {
+                                    const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                                    total += brightness;
+                                    count++;
+                                }
+                            }
+                            if (count > 0) {
+                                setPhotoBrightness(Math.round(total / count));
+                            } else {
+                                setPhotoBrightness(null);
+                            }
+                        } else {
+                            setPhotoBrightness(null);
+                        }
+                    } catch {
+                        setPhotoBrightness(null);
+                    }
+                } else {
+                    setPhotoBrightness(null);
+                }
+            })
             .catch(() => setEntry(null))
             .finally(() => setLoading(false));
     }, [params.id]);
@@ -215,6 +257,21 @@ export default function DetailsScreen() {
                                 </View>
                             </Card.Content>
                         </Card>
+                        {/* Sekcja zdjęcia */}
+                        {entry.photoUri ? (
+                            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                                <Image
+                                    source={{ uri: entry.photoUri }}
+                                    style={{ width: 220, height: 160, borderRadius: 12, marginBottom: 8 }}
+                                    contentFit="cover"
+                                />
+                                {photoBrightness !== null && !isNaN(photoBrightness) && (
+                                    <Text style={{ marginBottom: 4, color: '#555' }}>
+                                        Jasność zdjęcia: {Math.round(photoBrightness * 4)} lux
+                                    </Text>
+                                )}
+                            </View>
+                        ) : null}
                         <Button
                             icon="plus"
                             mode="contained"
@@ -227,7 +284,8 @@ export default function DetailsScreen() {
                                         steps: entry.steps,
                                         activityMinutes: entry.activity,
                                         mood: entry.mood,
-                                        exercises: JSON.stringify(entry.exercises || [])
+                                        exercises: JSON.stringify(entry.exercises || []),
+                                        photoUri: entry.photoUri || ''
                                     }
                                 })
                             }

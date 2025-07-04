@@ -10,6 +10,8 @@ export async function getEntry(id: number) {
   return res.json();
 }
 
+
+// entry: { ... , photoBrightness?: number }
 export async function addEntry(entry: any) {
   const res = await fetch(`${API_URL}/entries`, {
     method: 'POST',
@@ -19,6 +21,8 @@ export async function addEntry(entry: any) {
   return res.json();
 }
 
+
+// entry: { ... , photoBrightness?: number }
 export async function updateEntry(id: number, entry: any) {
   const res = await fetch(`${API_URL}/entries/${id}`, {
     method: 'PUT',

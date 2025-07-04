@@ -10,7 +10,9 @@ db.serialize(() => {
     activity INTEGER DEFAULT 0,
     activityGoal INTEGER DEFAULT 60,
     mood TEXT DEFAULT '',
-    exercises TEXT DEFAULT '[]'
+    exercises TEXT DEFAULT '[]',
+    photoUri TEXT DEFAULT NULL,
+    photoBrightness REAL
   )`);
 });
 
